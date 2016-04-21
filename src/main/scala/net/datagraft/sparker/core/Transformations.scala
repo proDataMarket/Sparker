@@ -1,6 +1,6 @@
 package net.datagraft.sparker.core
 
-import net.datagraft.sparker.util.{ScalableGrafterHelper, MergeGroup}
+import net.datagraft.sparker.util.{UtilityFunctions, ScalableGrafterInterOpHelper, MergeGroup}
 import org.apache.hadoop.fs.{FileSystem, FileUtil, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.sql.{SQLContext, _}
@@ -8,26 +8,22 @@ import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
 /**
-  * Main transformation class where basic transformations are performed on-top of DataFrame
   * Created by nive on 4/5/2016.
   */
 class Transformations(sparkCont: SparkContext) {
   def defaultPageSize =50
 
   val sqlContext = new SQLContext(sparkCont)
+  var filename = ""
   def makeDataSet(dataPath: String): DataFrame = {
+    this.filename = dataPath
      sqlContext.read
       .format("com.databricks.spark.csv")
       .option("header", "false")
-//      .option("inferSchema", "true")
+//      .option("inferSchema", "true") // Automatically infer data types
       .load(dataPath)
   }
 
-  /**
-    * Makes the first row of df as the column headers
-    * @param df
-    * @return df
-    */
   def makeDataSetWithColumn(df: DataFrame): DataFrame = {
     val rdd = df.rdd.mapPartitionsWithIndex { (idx, iter) => if (idx == 0) iter.drop(1) else iter }
     val struct = StructType(
@@ -40,25 +36,11 @@ class Transformations(sparkCont: SparkContext) {
   }
 
   def makeDataSet(df: DataFrame, to: Int, from: Int = 0): DataFrame = {
-    // default of from is 0 (to merge easily with UI, also can extend feature to support *to*)
+    // default to from is 0 (to merge easily with UI, also can extend feature to support *to*)
     val cols = df.columns.slice(from, to)
     df.select(cols.head, cols.tail: _*)
   }
 
-//  def paginateDataFrame (df : DataFrame , pageNumber :Int,  pageSize :Int = defaultPageSize) : DataFrame = {
-//    if( pageNumber.!=(0))
-//      {
-//        println( " pageing "+ pageNumber)
-//        val firstPortion =df.limit(pageSize*pageNumber)
-//        val page = df.repartition(1).except(firstPortion).limit(pageSize)
-//        page
-//      }
-//    else{
-//      df
-//    }
-//
-//
-//  }
   def getColumns(df : DataFrame) : String = {
     df.columns.mkString(",")
   }
@@ -120,7 +102,7 @@ class Transformations(sparkCont: SparkContext) {
     for( (colName, sortingExprForCol) <- columnsToSort zip sortingExprStr){
 
       val splits = sortingExprForCol.split(":")
-      dfUpdated = dfUpdated.withColumn(colName, dfUpdated.col(colName).cast(ScalableGrafterHelper.getFieldTypeInSchema(splits(1))))
+      dfUpdated = dfUpdated.withColumn(colName, dfUpdated.col(colName).cast(ScalableGrafterInterOpHelper.getFieldTypeInSchema(splits(1))))
       if(splits(0)=="desc") listOfColumn += col(colName).desc
       else if(splits(0)=="asc") listOfColumn += col(colName).asc
     }
@@ -128,30 +110,55 @@ class Transformations(sparkCont: SparkContext) {
   }
 
 
-  // http://blog.cloudera.com/blo
-  // g/2015/03/how-to-tune-your-apache-spark-jobs-part-1/
-  // need to check for improved sorting
-  // syntax column , type asc/desc
-  //  def sortDataSet(df : DataFrame, groupFunctions: Map[String, String]) : DataFrame = {
-  //    val cols = List[org.apache.spark.sql.Column]
-  //    groupFunctions foreach (x => df.col(x._1).cast(IntegerType).desc)
-  //    df.sort()
-  //  }
 
-  def addColumn(df: DataFrame, columns: List[String]): DataFrame = {
-    df
+  def addColumnWithFunctions(df : DataFrame , colName: String, funcStr: String): DataFrame ={
+    df.withColumn(colName, UtilityFunctions.getUtilityUDF(funcStr))
   }
 
-  def selectColumn(df: DataFrame, from: Int, to: Int): DataFrame = {
-    df
+  def addColumnWithValue(df: DataFrame , colName: String,  value: Any) : DataFrame = {
+    df.withColumn(colName, lit(value))
+  }
+
+  def dropColumn(df: DataFrame, from: Int, to: Int) : DataFrame ={
+    val selected = df.columns.filterNot(df.columns.slice(from,to).contains(_))
+    df.select(selected.head , selected.tail: _*)
+  }
+
+  def dropColumn(df: DataFrame, dropList: List[String]) : DataFrame = {
+    val selected = df.columns.filterNot(dropList.contains(_))
+    df.select(selected.head , selected.tail: _*)
+  }
+
+  def applyToColumn(df : DataFrame, colName: String, funcStr: List[String]) : DataFrame = {
+    df.withColumn(colName, UtilityFunctions.getApplyFunctionForColumn(colName, funcStr))
+  }
+  def deriveColumn(df : DataFrame , newColName: String, deriveFrom: List[String], funcStr: List[String]) :DataFrame = {
+    df.withColumn(newColName, UtilityFunctions.getApplyFunctionForColumn(deriveFrom.head, funcStr))
+  }
+
+  def splitColumn(df: DataFrame, colName: String, separator: String): DataFrame = {
+
+    val colVal = df.select(col(colName)).head().getAs[String](0).split(separator)
+    val list = scala.collection.mutable.ListBuffer[StructField]()
+    for ( index <- 1 to colVal.length ) {list += StructField(colName+"_splited_"+index, StringType,true)}
+
+    val split_row= (colToSplit: String) => {colToSplit.split(separator)}
+
+    val rows = df.rdd.map(r => Row.fromSeq(
+      r.toSeq ++
+        split_row(r.getAs[String](colName))))
+
+    sqlContext.createDataFrame(rows, StructType(df.schema.fields ++ list))
   }
 
   def renameColumn(df: DataFrame, existingName: String, newName: String): DataFrame = {
     df.withColumnRenamed(existingName, newName)
   }
 
-  def mergeColumn(df: DataFrame): DataFrame = {
-    df
+  def mergeColumn(df: DataFrame, newColName: String, colsToMerge : List[String], separator: String): DataFrame = {
+    val listOfColumn = scala.collection.mutable.ListBuffer[Column]()
+    for(colName <- colsToMerge) listOfColumn += col(colName)
+    df.withColumn(newColName , concat_ws(separator , listOfColumn.toList: _* ))
   }
 
   def show(df: DataFrame): DataFrame = {
@@ -159,13 +166,50 @@ class Transformations(sparkCont: SparkContext) {
     df
   }
 
+  def addRow(df: DataFrame, rowValues: List[String]): DataFrame = {
+    val rowRdd = sqlContext.sparkContext.parallelize(Seq(rowValues)).map(v => Row(v: _*))
+    val newDF = sqlContext.createDataFrame(rowRdd, df.schema)
+    df.unionAll(newDF)
+  }
+
+/*  def takeRow(df: DataFrame, from: Int, to: Int) : DataFrame = {
+    val subset = df.take(to).slice(from, to)
+//    sqlContext.createDataFrame(subset, df.schema)
+    df
+  }*/
+
+  def filterRows(df: DataFrame, colsToFilter: List[String], funcStr: String, expToFilter : String) : DataFrame = {
+    df.filter(UtilityFunctions.getFilterExp(colsToFilter.head, funcStr, expToFilter))
+  }
+
+//  def melt(df: DataFrame) : Unit = {
+//
+//  }
+
+  def saveDataAsJson(df: DataFrame, filePath: String): String = {
+    val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
+    val hdfs = FileSystem.get(hadoopConf)
+    val path = new Path(filePath)
+    if (hdfs.exists(path)) {
+      hdfs.delete(path, true)
+    }
+    val mergedPath = "merged-"+filePath+".json"
+    val merged = new Path (mergedPath)
+    if (hdfs.exists(merged)) {
+      hdfs.delete(merged, true)
+    }
+    df.toJSON.saveAsTextFile(filePath)
+
+    FileUtil.copyMerge(hdfs, path, hdfs, merged, false, hadoopConf, null)
+    mergedPath
+  }
   /**
     * Creates a csv file of given DataFrame. Overwrites if anything already exist in provided output path
     *
     * @todo Make it without repartition and merge them to new file and return the new file location as output
     * @todo analyse for any better solutions in future
-    * @param df
-    * @param filePath
+    * @param df DataFrame to save
+    * @param filePath Physical location to save dataframe
     */
   def saveDataAsCsv(df: DataFrame, filePath: String): String = {
     val hadoopConf = sqlContext.sparkContext.hadoopConfiguration

@@ -6,7 +6,7 @@ import org.apache.spark.sql.types._
 /**
   * Created by nive on 4/14/2016.
   */
-object ScalableGrafterHelper {
+object ScalableGrafterInterOpHelper {
 
   def getFieldTypeInSchema(fieltType: String): DataType = {
     val dataType = fieltType.toLowerCase.trim match {
@@ -34,6 +34,7 @@ object ScalableGrafterHelper {
     }
     dataType
   }
+
 
 
 }
