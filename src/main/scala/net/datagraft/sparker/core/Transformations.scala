@@ -24,6 +24,19 @@ class Transformations(sparkCont: SparkContext) {
       .load(dataPath)
   }
 
+  def makeDataSet(dataPath: String , doSample: Boolean, sample: Double): DataFrame = {
+    this.filename = dataPath
+    var df =sqlContext.read
+      .format("com.databricks.spark.csv")
+      .option("header", "true")
+      //      .option("inferSchema", "true") // Automatically infer data types
+      .load(dataPath)
+    if(doSample){
+      df =df.sample(true, sample).limit(1000)
+    }
+    df
+  }
+
   def makeDataSetWithColumn(df: DataFrame): DataFrame = {
     val rdd = df.rdd.mapPartitionsWithIndex { (idx, iter) => if (idx == 0) iter.drop(1) else iter }
     val struct = StructType(

@@ -1,10 +1,10 @@
 package net.datagraft.sparker
 
-import net.datagraft.sparker.core.{Transformations, InitSpark}
+import net.datagraft.sparker.core.Transformations
+import net.datagraft.sparker.core.InitSpark
 
 
 /**
-  * Development Tester class
   * Created by nive on 4/5/2016.
   */
 object ScalableGrafter {
@@ -13,11 +13,30 @@ object ScalableGrafter {
 
     val scalableSpark = new InitSpark().init()
     val transformer = new Transformations(scalableSpark)
-    var df = transformer.makeDataSet("example-data.csv")
+    var df = transformer.makeDataSet("2008.csv", true, 0.1)
+//    transformer.saveDataAsCsv(df, "sample2")
 
-    df =transformer.makeDataSetWithColumn(df)
-    df = transformer.makeDataSet(df, 15)
-    df.show()
+//    println(df.collect().length)
+//    df = transformer.makeDataSetWithColumn(df)
+
+//    val tet = //= ("nive", "f", "90", "world", "23456")
+//    Traversable("nive", "f", "90", "world", "23456")
+//    df = transformer.addRow(df,List("ann", "f", "90", "world", "23456") )
+//    df = transformer.filterRows(df, List("age"),"+", "63")
+//      df = transformer.deriveColumn(df, "newone", List("age") , List("power", "2" , "female"))
+//      df = df.withColumn("new" ,lit(df.groupBy().max("age").collect().head))
+//    df = transformer.deriveColumn(df, "newOne", List("age"), "max")
+
+//    df = transformer.dropColumn(df, List("age","street"))
+
+//    df = transformer.renameColumn(df, "newCol_splited_2", "name")
+//    df = transformer.dropColumn(df , List("name"))
+//    df = transformer.deriveColumn(df, "newCol" , List("age"), "max")
+
+//    df = transformer.mergeColumn(df, "newCol" , List("age", "name", "street"), ":")
+//        df = transformer.splitColumn(df, "newCol" , ":")
+      df.show()
+//    transformer.saveDataAsCsv(df, "newMergedFile")
 
 //    val cols = List("name", "sex")
 //    val aggcol = List("street:agg" , "age:agg" , "street:first")
@@ -43,17 +62,17 @@ object ScalableGrafter {
 ////    //    df = makeDataSet(df, 6)
 ////
 //    val listOfStrings =  List("CODREG", "REGIONE", "CODPRO", "PROVINCIA", "CODCOM");
-    val col = List("age","weight")
-    val func = List( "desc: int" ,  "desc: num")
+//    val col = List("age","weight")
+//    val func = List( "desc: int" ,  "desc: num")
 //    df = transformer.removeDuplicates(df,listOfStrings )
 
 //
 //    transformer.saveDataAsCsv(df, "results.csv")
-    df =transformer.sortDataSetWithColumnExpr(df, col, func)
+//    df =transformer.sortDataSetWithColumnExpr(df, col, func)
 //    df.printSchema()
-    df.show()
+//    df.show()
     //    df = sortDataSet(df, Map("CODCOM"-> "NUM:DESC", "first(COMUNE)"-> "ALPHA:ASC"))
-//    println(transformer.saveDataAsCsv(df, "resu"))
+//    println(transformer.saveDataAsJson(df, "resu"))
 //    df.show
     //    result.show
 

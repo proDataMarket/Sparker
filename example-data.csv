@@ -1,5 +1,5 @@
 name,sex,age,street,weight
 Alice,f,34,somewhere,70
-Bob,m,63,nowhere,70
+Bob,m,63,nowhere,-70
 Alice,f,612,nextstreet,23
 Bob,m,612,moon,8
