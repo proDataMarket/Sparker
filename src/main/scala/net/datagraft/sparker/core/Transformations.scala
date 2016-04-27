@@ -15,26 +15,37 @@ class Transformations(sparkCont: SparkContext) {
 
   val sqlContext = new SQLContext(sparkCont)
   var filename = ""
+
   def makeDataSet(dataPath: String): DataFrame = {
     this.filename = dataPath
      sqlContext.read
       .format("com.databricks.spark.csv")
       .option("header", "false")
-//      .option("inferSchema", "true") // Automatically infer data types
+      .option("treatEmptyValuesAsNulls", "true" )
+      .option("parserLib", "univocity")
       .load(dataPath)
+//       .na.fill("NA")
   }
 
-  def makeDataSet(dataPath: String , doSample: Boolean, sample: Double): DataFrame = {
+  def makeDataSet(dataPath: String , doSample: Boolean, sampleLimit: Int): DataFrame = {
     this.filename = dataPath
     var df =sqlContext.read
       .format("com.databricks.spark.csv")
       .option("header", "true")
-      //      .option("inferSchema", "true") // Automatically infer data types
+      .option("treatEmptyValuesAsNulls", "true" )
+      .option("parserLib", "univocity")
       .load(dataPath)
-    if(doSample){
-      df =df.sample(true, sample).limit(1000)
+//      .na.fill("NA")
+    if(doSample){//need a better mechanism to decide on samples size
+      val dfsample =df.sample(true, 0.1)
+      if(dfsample.count()>=sampleLimit) df=dfsample.limit(sampleLimit)
     }
+
     df
+  }
+
+  def fillNullValues(df: DataFrame, value: String)= {
+    df.na.fill(value)
   }
 
   def makeDataSetWithColumn(df: DataFrame): DataFrame = {
@@ -64,7 +75,7 @@ class Transformations(sparkCont: SparkContext) {
     rowMappedToColumns.collect().mkString("({" , "} {", "})")
   }
 
-  //Usage agg functions to be in a string map grpcol as a list val result = groupAndAggregate(df, Map("COMUNE"-> "COUNT"), listOfStrings)
+  //Not used in Service : Usage agg functions to be in a string map grpcol as a list val result = groupAndAggregate(df, Map("COMUNE"-> "COUNT"), listOfStrings)
   def groupAndAggregate(df: DataFrame, cols: List[String], aggregatecol : List[String], aggregateFun : List[String]): DataFrame = {
 
     val mapify = aggregatecol.zip(aggregateFun).toMap
@@ -80,7 +91,7 @@ class Transformations(sparkCont: SparkContext) {
     val mutableAggFunMap = scala.collection.mutable.LinkedHashMap[String, String]()
     for(colAndFun <-aggColFunExpr)
     {
-      if(colAndFun.matches(".*:agg")){
+      if(colAndFun.matches(".*:MERGE")){
         val col = colAndFun.split(":")(0)
         sqlContext.udf.register("merge",new MergeGroup(col, ":")) // for the time being merge separator is set to ":" TO be changed
         mutableAggFunMap += (col -> "merge")
@@ -168,6 +179,11 @@ class Transformations(sparkCont: SparkContext) {
     df.withColumnRenamed(existingName, newName)
   }
 
+  def renameAllColumns(df: DataFrame,  newName: List[String]): DataFrame = {
+    df.toDF(newName: _*)
+  }
+
+
   def mergeColumn(df: DataFrame, newColName: String, colsToMerge : List[String], separator: String): DataFrame = {
     val listOfColumn = scala.collection.mutable.ListBuffer[Column]()
     for(colName <- colsToMerge) listOfColumn += col(colName)
@@ -236,14 +252,35 @@ class Transformations(sparkCont: SparkContext) {
         }
     df.write
       .format("com.databricks.spark.csv")
-//      .option("header", "true")
+      .option("header", "false")
       .mode(SaveMode.Overwrite)
       .save(filePath)
 
     FileUtil.copyMerge(hdfs, path, hdfs, merged, false, hadoopConf, null)
+//        hdfs.delete(path, true)
     mergedPath
   }
 
 
 
+  def saveSampleAsCsv(df: DataFrame, filePath: String): String = {
+    val hadoopConf = sqlContext.sparkContext.hadoopConfiguration
+    val hdfs = FileSystem.get(hadoopConf)
+    val path = new Path(filePath)
+
+    val mergedPath = "merged-sample"+filePath+".csv"
+    val merged = new Path (mergedPath)
+    if (hdfs.exists(merged)) {
+      hdfs.delete(merged, true)
+    }
+    df.repartition(1).write //assuming the sample is quite small and can fit in single memory
+      .format("com.databricks.spark.csv")
+      .option("header", "true")
+      .mode(SaveMode.Overwrite)
+      .save(filePath)
+
+    FileUtil.copyMerge(hdfs, path, hdfs, merged, false, hadoopConf, null)
+//    hdfs.delete(path, true)
+    mergedPath
+  }
 }

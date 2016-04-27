@@ -2,6 +2,8 @@ package net.datagraft.sparker.util
 
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions._
+import java.sql.Date
+import java.text.SimpleDateFormat
 
 
 /**
@@ -25,6 +27,12 @@ object UtilityFunctions {
     udfFunction
   }
 
+  val toDate = udf( (dob: String , format: String) => {
+    val javaUtilDate = new SimpleDateFormat(format).parse(dob)
+    new Date(javaUtilDate.getTime())
+  })
+
+
   def getApplyFunctionForColumn(colName: String, funcStr: List[String]) : Column = {
     val udfFunction = funcStr.head.trim match {
       //replace
@@ -37,7 +45,7 @@ object UtilityFunctions {
       case "cast" => col(colName).cast(ScalableGrafterInterOpHelper.getFieldTypeInSchema(funcStr(1)))
       // lit with given value
       //parse eu date
-      case "date" => to_date(col(colName))
+      case "date" => toDate(col(colName), lit(funcStr(1)))
       //remove blanks
       case "trim" => trim(col(colName))
       //inc
