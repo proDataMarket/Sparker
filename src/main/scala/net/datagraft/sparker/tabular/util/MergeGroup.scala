@@ -1,4 +1,4 @@
-package net.datagraft.sparker.util
+package net.datagraft.sparker.tabular.util
 
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.expressions.{MutableAggregationBuffer, UserDefinedAggregateFunction}

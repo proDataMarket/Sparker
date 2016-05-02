@@ -1,4 +1,4 @@
-package net.datagraft.sparker.util
+package net.datagraft.sparker.tabular.util
 
 import org.apache.spark.sql.types._
 

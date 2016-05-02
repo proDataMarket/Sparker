@@ -1,7 +1,7 @@
 package net.datagraft.sparker
 
-import net.datagraft.sparker.core.Transformations
 import net.datagraft.sparker.core.InitSpark
+import net.datagraft.sparker.tabular.TabularTransformer
 
 
 /**
@@ -12,12 +12,23 @@ object ScalableGrafter {
   def main(args: Array[String]) {
 
     val scalableSpark = new InitSpark().init()
-    val transformer = new Transformations(scalableSpark)
-    var df = transformer.makeDataSet("2008.csv", true, 0.1)
+    val transformer = new TabularTransformer(scalableSpark)
+    var df = transformer.makeDataSet("example-data.csv")
+
+//    transformer.saveSampleAsCsv(df, "ConsumerComplaits")
+
 //    transformer.saveDataAsCsv(df, "sample2")
 
 //    println(df.collect().length)
-//    df = transformer.makeDataSetWithColumn(df)
+    df = transformer.makeDataSetWithColumn(df)
+//    df = transformer.filterRows(df, List("COMUNE"), "regex" ,List("drop", ".*airasca.*") )
+    df = transformer.addColumnWithFunctions(df,"rowids", "Row number")
+    df = transformer.dropRows(df, 2,3)
+
+
+//    df = transformer.groupAndAggregate(df, List("CODREG" ,"REGIONE" ,"CODPRO", "PROVINCIA" ,"CODCOM", "COMUNE"), List("CODLOC:MERGE"))
+//    df = transformer.applyToColumn(df, "Date sent to company" , List("date" , "MM/dd/yyyy"))
+//    df = transformer.sortDataSetWithColumnExpr(df, List("Date sent to company"), List("desc:date"))
 
 //    val tet = //= ("nive", "f", "90", "world", "23456")
 //    Traversable("nive", "f", "90", "world", "23456")

@@ -10,6 +10,6 @@ class InitSpark {
 
   def init(): SparkContext ={
     val conf = new SparkConf().setAppName("Spark Pi").setMaster("local[*]")
-    return  new SparkContext(conf)
+    new SparkContext(conf)
   }
 }
