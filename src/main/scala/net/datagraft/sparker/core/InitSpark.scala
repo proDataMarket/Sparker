@@ -9,7 +9,13 @@ import org.apache.spark.{SparkConf, SparkContext}
 class InitSpark {
 
   def init(): SparkContext ={
-    val conf = new SparkConf().setAppName("Spark Pi").setMaster("local[*]")
-    new SparkContext(conf)
+
+    val sparkConf = new SparkConf();
+    sparkConf.set("spark.app.name", "Sparker")
+//    sparkConf.set("spark.master", "yarn")
+    //    sparkConf.set("spark.deploy.mode", "client")
+
+
+    new SparkContext(sparkConf)
   }
 }

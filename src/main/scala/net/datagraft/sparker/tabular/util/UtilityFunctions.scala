@@ -59,16 +59,16 @@ object UtilityFunctions {
       //add
       case "add" => col(colName)+funcStr(1).toDouble
       //add
-      case "join" => col(colName)+funcStr(1).toDouble
+//      case "join" => col(colName)+funcStr(1).toDouble
       //replace
       case "replace" => regexp_replace(col(colName) ,funcStr(1), funcStr(2))
       //Cast
       case "cast" => col(colName).cast(ScalableGrafterInterOpHelper.getFieldTypeInSchema(funcStr(1)))
       // lit with given value
       //parse eu date
-      case "date" => toDate(col(colName), lit(funcStr(1)))
+      case "fr" => toDate(col(colName), lit(funcStr(1)))
       //dec
-      case "minus" => col(colName)-funcStr(1).toDouble
+      case "subtract" => col(colName)-funcStr(1).toDouble
       //multipy
       case "multipy" => col(colName)*funcStr(1).toDouble
       //divide
@@ -83,6 +83,10 @@ object UtilityFunctions {
       case "power" => pow(col(colName),funcStr(1).toInt)
       //substring
       case "substr" => substring(col(colName),funcStr(1).toInt, funcStr(2).toInt)
+      //prefixer
+      case "prefixer" => concat(List(lit(funcStr(1)), col(colName)): _*)
+        //fillemptywith
+      case "fill-empty-with" => regexp_replace(col(colName) ,"", funcStr(1))
 
       case "max" =>max(colName)
       case "min" =>min(colName)
@@ -113,6 +117,7 @@ object UtilityFunctions {
       case ">=" => col(colToApply).>=(exprStrToApply)
       case "<=" => col(colToApply).<=(exprStrToApply)
       case "<" => col(colToApply).<(exprStrToApply)
+      case "not-empty?" => col(colToApply).isNotNull.and(col(colToApply).!==(""))
 
 
 //      case "+" => col(colToApply).cast(DoubleType).+(exprStrToApply)

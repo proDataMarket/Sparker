@@ -58,7 +58,8 @@ libraryDependencies ++= Seq(
 
   "org.apache.spark" %% "spark-core" % "1.6.0",
   "org.apache.spark" %% "spark-sql" % "1.6.0",
-  "com.databricks" %% "spark-csv" % "1.4.0"
+  "com.databricks" %% "spark-csv" % "1.4.0",
+  "org.apache.spark" %% "spark-graphx" % "1.6.0"
   //      "log4j" % "log4j" % "1.2.15" excludeAll(
   //        ExclusionRule(organization = "com.sun.jdmk"),
   //        ExclusionRule(organization = "com.sun.jmx"),
