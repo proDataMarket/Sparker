@@ -18,6 +18,7 @@ import scala.collection.mutable
 class TabularTransformer(sparkCont: SparkContext) {
   def defaultPageSize = 50
 
+
   val sqlContext = new SQLContext(sparkCont)
   var filename = ""
 
@@ -66,8 +67,15 @@ class TabularTransformer(sparkCont: SparkContext) {
     df.select(colList.head, colList.tail: _*).toDF(cols: _*)
   }
 
+  /**
+    * Creates new DataFrame with selected columns from given range.
+    *
+    * @param df DataFrame on what the operations are to be performed
+    * @param to  end index of columns to be selected
+    * @param from  start index of columns to be selected, default is 0
+    * @return new DataFrame with selected columns
+    */
   def makeDataSet(df: DataFrame, to: Int, from: Int = 0): DataFrame = {
-    // default to from is 0 (to merge easily with UI, also can extend feature to support *to*)
     val cols = df.columns.slice(from, to)
     df.select(cols.head, cols.tail: _*)
   }
@@ -194,7 +202,15 @@ class TabularTransformer(sparkCont: SparkContext) {
     df.toDF(newName: _*)
   }
 
-
+  /**
+    * Creates a new DataFrame with a newly merged column included
+    *
+    * @param df DataFrame on what the operations are to be performed
+    * @param newColName column name of merged column
+    * @param colsToMerge columns to be merged
+    * @param separator separator to use in between column values
+    * @return newly created DataFrame with merged column
+    */
   def mergeColumn(df: DataFrame, newColName: String, colsToMerge: List[String], separator: String): DataFrame = {
     val listOfColumn = scala.collection.mutable.ListBuffer[Column]()
     for (colName <- colsToMerge) listOfColumn += col(colName)
@@ -224,6 +240,12 @@ class TabularTransformer(sparkCont: SparkContext) {
     sqlContext.createDataFrame(rdd, df.schema)
   }
 
+  /**
+    * Creates a new DataFrame with additional column with row numbers
+    * @param df DataFrame on what the operations are to be performed
+    * @param colName column name of row id
+    * @return Newly created DataFrame with row numbers
+    */
   def addRowId(df: DataFrame, colName: String): DataFrame = {
     val rdd = df.rdd.zipWithIndex().map(indexedRow => Row.fromSeq(indexedRow._2.toString +: indexedRow._1.toSeq))
     sqlContext.createDataFrame(rdd, StructType(Seq(StructField(colName, StringType, true)).++(df.schema.fields)))
@@ -303,16 +325,25 @@ class TabularTransformer(sparkCont: SparkContext) {
     mergedPath
   }
 
+  /**
+    * Creates new DataFrame with reshaped data, that has variable and value columns and transpose data
+    *
+    * @param df DataFrame on what the operations are to be performed
+    * @param columns pivot columns
+    * @return Newly created DataFrame with melted data
+    */
   def melt(df: DataFrame, columns: List[String]): DataFrame ={
 
     val restOfTheColumns =  df.columns.filterNot(columns.contains(_))
     val baseDF = df.select(columns.head, columns.tail: _*)
-    val newStructure =StructType(baseDF.schema.fields ++ List(StructField("variable", StringType, true), StructField("value", StringType, true)))
+    val newStructure =StructType(baseDF.schema.fields ++ List(StructField("variable", StringType, true),
+      StructField("value", StringType, true)))
     var newdf  = sqlContext.createDataFrame(sqlContext.sparkContext.emptyRDD[Row], newStructure)
 
     for(variableCol <- restOfTheColumns){
       val colValues = df.select(variableCol).map(r=> r(0).toString)
-      val colRdd=baseDF.rdd.zip(colValues).map(tuple => Row.fromSeq(tuple._1.toSeq.:+(variableCol).:+(tuple._2.toString)))
+      val colRdd=baseDF.rdd.zip(colValues)
+                           .map(tuple => Row.fromSeq(tuple._1.toSeq.:+(variableCol).:+(tuple._2.toString)))
       var colDF =sqlContext.createDataFrame(colRdd, newStructure)
       newdf =newdf.unionAll(colDF)
     }
